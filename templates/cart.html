@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>R.GLOBAL - Cart</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root { --aiims-blue: #000080; --aiims-purple: #8e44ad; --success-green: #27ae60; --danger-red: #e74c3c; }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #f4f7f6; }
+        
+        .top-nav { background: white; padding: 10px 40px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .container { padding: 30px 40px; max-width: 1000px; margin: auto; }
+        .cart-card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th { text-align: left; padding: 15px; border-bottom: 2px solid #eee; color: var(--aiims-blue); }
+        td { padding: 15px; border-bottom: 1px solid #eee; }
+
+        /* Quantity Buttons Styling */
+        .qty-btn { background: #eee; border: 1px solid #ddd; padding: 5px 10px; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        .qty-btn:hover { background: #ddd; }
+        .qty-val { margin: 0 10px; font-weight: bold; }
+        
+        .modal {
+            display: none; 
+            position: fixed; 
+            z-index: 1000; 
+            left: 0; top: 0; 
+            width: 100%; height: 100%; 
+            background-color: rgba(0,0,0,0.5); 
+        }
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 12px;
+            width: 400px;
+            text-align: left;
+        }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        
+        .btn-checkout { background: var(--success-green); color: white; border: none; padding: 15px 40px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .btn-cancel { background: var(--danger-red); color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+        .btn-confirm { background: var(--aiims-blue); color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-left: 10px; }
+    </style>
+</head>
+<body>
+
+    <header class="top-nav">
+        <h2 style="color:var(--aiims-blue); margin:0;">R.GLOBAL <span style="color:var(--aiims-purple)">CART</span></h2>
+        <div style="font-weight:bold; color:var(--aiims-blue);">User: {{ user }}</div>
+    </header>
+
+    <div class="container">
+        <div class="cart-card">
+            <h3>Your Items</h3>
+            <div id="cart-content"></div>
+            <div class="cart-summary" id="cart-summary" style="display:none; text-align:right; margin-top:20px;">
+                <h2 id="grand-total">Total: </h2>
+                <button onClick="openCustomerPopup()" class="btn-checkout">Order Now</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="customerModal" class="modal">
+        <div class="modal-content">
+            <h3></i> Checkout Details</h3>
+            <hr>
+            <div class="form-group">
+                <label>Customer Name</label>
+                <input type="text" id="cust-name" placeholder="Name">
+            </div>
+            <div class="form-group">
+                <label>Phone Number</label>
+                <input type="text" id="cust-number" placeholder="Number">
+            </div>
+            <div class="form-group">
+                <label>Address</label>
+                <textarea id="cust-address" rows="2" placeholder="Address"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Payment</label>
+                <select id="payment-method">
+                    <option value="CARD">CARD</option>
+                    <option value="CASH">CASH</option>
+                </select>
+            </div>
+
+            <div id="popup-total" style="font-weight: bold; font-size: 1.2rem; color: var(--aiims-blue); margin: 15px 0;"></div>
+            
+            <div class="modal-footer" style="text-align:right;">
+                <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+                <button class="btn-confirm" id="confirmBtn" onclick="submitOrder()">Confirm & Pay</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function displayCart() {
+            const cart = JSON.parse(localStorage.getItem('userCart')) || [];
+            const container = document.getElementById('cart-content');
+            const summary = document.getElementById('cart-summary');
+
+            if (cart.length === 0) {
+                container.innerHTML = "<p style='text-align:center;'>Cart is empty.</p>";
+                summary.style.display = 'none';
+                return;
+            }
+
+            summary.style.display = 'block';
+            let total = 0;
+            let html = `<table><tr><th>Product</th><th>Price</th><th>Qty</th><th>Total</th></tr>`;
+            
+            cart.forEach((item, index) => {
+                let rowTotal = item.price * item.quantity;
+                total += rowTotal;
+                html += `
+                <tr>
+                    <td>${item.name}</td>
+                    <td>$${item.price}</td>
+                    <td>
+                        <button class="qty-btn" onclick="updateQty(${index}, -1)">-</button>
+                        <span class="qty-val">${item.quantity}</span>
+                        <button class="qty-btn" onclick="updateQty(${index}, 1)">+</button>
+                    </td>
+                    <td>$${rowTotal.toFixed(2)}</td>
+                </tr>`;
+            });
+
+            container.innerHTML = html + `</table>`;
+            document.getElementById('grand-total').innerText = `Total:$${total.toFixed(2)}`;
+        }
+
+        function updateQty(index, change) {
+            let cart = JSON.parse(localStorage.getItem('userCart')) || [];
+            cart[index].quantity += change;
+
+            if (cart[index].quantity <= 0) {
+                cart.splice(index, 1);
+            }
+
+            localStorage.setItem('userCart', JSON.stringify(cart));
+            displayCart();
+        }
+
+        function openCustomerPopup() {
+            const cart = JSON.parse(localStorage.getItem('userCart')) || [];
+            if (cart.length === 0) return;
+
+            let total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            document.getElementById('popup-total').innerText = `Payable Amount: $${total.toFixed(2)}`;
+            document.getElementById('customerModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('customerModal').style.display = 'none';
+        }
+
+        async function submitOrder() {
+            const cart = JSON.parse(localStorage.getItem('userCart')) || [];
+            const name = document.getElementById('cust-name').value;
+            const phone = document.getElementById('cust-number').value;
+            const address = document.getElementById('cust-address').value;
+            const payment = document.getElementById('payment-method').value;
+
+            if(!name || !phone || !address) {
+                alert("Please fill in all details");
+                return;
+            }
+
+            const confirmBtn = document.getElementById('confirmBtn');
+            confirmBtn.innerText = "Processing";
+            confirmBtn.disabled = true;
+
+            const orderData = {
+                items: cart,
+                customer: { 
+                    name, 
+                    phone, 
+                    address,
+                    payment_method: payment 
+                }
+            };
+
+            try {
+                const response = await fetch('/checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(orderData)
+                });
+
+                if (response.ok) {
+                    alert(`Order placed successfully via ${payment}!`);
+                    localStorage.removeItem('userCart');
+                    window.location.href = '/orders'; 
+                } else {
+                    alert("Checkout failed. Please try again.");
+                }
+            } catch (error) {
+                alert("Server error. Check your connection.");
+            } finally {
+                confirmBtn.innerText = "Confirm & Pay";
+                confirmBtn.disabled = false;
+            }
+        }
+
+        window.onclick = function(event) {
+            const modal = document.getElementById('customerModal');
+            if (event.target == modal) closeModal();
+        }
+
+        window.onload = displayCart;
+    </script>
+</body>
+</html>

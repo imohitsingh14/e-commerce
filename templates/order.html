@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>R.GLOBAL - Orders</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root { --aiims-blue: #000080; --aiims-purple: #8e44ad; }
+        body { 
+            margin: 0; 
+            font-family: 'Segoe UI', sans-serif;
+            background-image: url('/static/bg.jpg');
+            background-size: cover;
+            background-attachment: fixed; 
+        }
+
+        /* Top Navigation */
+        .top-nav { 
+            background: white; 
+            padding: 10px 40px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        /* Main Blue Menu Bar */
+        .main-menu { 
+            background-color: var(--aiims-blue); 
+            display: flex; 
+            padding: 0 40px; 
+            list-style: none; 
+            margin: 0; 
+            min-height: 50px; 
+            align-items: center; 
+            position: sticky; 
+            top: 0; 
+            z-index: 1000; 
+        }
+        .main-menu li { position: relative; }
+        .main-menu li a { 
+            color: white; 
+            text-decoration: none; 
+            padding: 15px 25px; 
+            display: block; 
+            font-size: 14px; 
+            font-weight: 600; 
+            cursor: pointer; 
+        }
+        .main-menu li a:hover { background: rgba(255,255,255,0.1); }
+
+        /* Merchant Dropdown Styling */
+        .dropdown-content { 
+            display: none; 
+            position: absolute; 
+            background: white; 
+            min-width: 200px; 
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2); 
+            z-index: 1001; 
+            top: 100%; 
+            border-radius: 0 0 5px 5px; 
+        }
+        .dropdown:hover .dropdown-content { display: block; }
+        .dropdown-content a { 
+            color: var(--aiims-blue) !important; 
+            padding: 12px 20px !important; 
+            border-bottom: 1px solid #eee; 
+            text-decoration: none; 
+            display: block; 
+            font-weight: 500; 
+            cursor: pointer;
+        }
+        .dropdown-content a:hover { background: #f1f1f1; }
+
+        /* Container & Tables */
+        .container { padding: 30px 40px; }
+        .content-card { 
+            background: white; 
+            padding: 25px; 
+            border-radius: 12px; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1); 
+        }
+        .data-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .data-table th, .data-table td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; }
+        .data-table th { background: #f8f9fa; color: var(--aiims-blue); }
+        
+        /* Status Badges */
+        .status-badge { 
+            padding: 5px 12px; 
+            border-radius: 20px; 
+            font-size: 11px; 
+            font-weight: bold; 
+            text-transform: uppercase;
+        }
+        .status-pending { background: #fff4e5; color: #ff9800; }
+        .status-completed { background: #e6f4ea; color: #1e7e34; }
+
+        /* Toggle Sections */
+        #merchant-view { display: none; }
+    </style>
+</head>
+<body>
+
+    <header class="top-nav">
+        <h2 style="margin:0; color:var(--aiims-blue);">R.GLOBAL <span style="color:var(--aiims-purple)">ORDERS</span></h2>
+        <button onclick="window.location.href='/logout'" style="background: #eee; border:none; padding:8px 15px; border-radius:5px; cursor:pointer; font-weight:bold;">Logout</button>
+    </header>
+
+    <nav> 
+        <ul class="main-menu" id="horizontal-menu"></ul> 
+    </nav>
+
+    <div class="container">
+        <!-- Default Order View -->
+        <div id="order-view" class="content-card">
+            <h3 style="margin-top:0; color:var(--aiims-blue);"> Order Management</h3>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Customer</th>
+                        <th>Amount</th>
+                        <th>Status</th>  
+                        <th>Address</th>
+                        <th>Order Date</th>
+                    </tr>
+                </thead>
+                <tbody id="order-rows">
+                    <tr><td colspan="6">Loading orders...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="merchant-view" class="content-card">
+            <button onclick="showOrders()" style="padding: 8px 15px; border:none; cursor:pointer; background:#eee; border-radius:5px;"><i class="fa fa-arrow-left"></i> Back to Orders</button>
+            <h2 id="merchant-title" style="color:var(--aiims-blue); margin-top:20px;">Merchant Data</h2>
+            <table class="data-table">
+                <thead id="merchant-head"></thead>
+                <tbody id="merchant-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+<script>
+    function showOrders() {
+        document.getElementById('order-view').style.display = 'block';
+        document.getElementById('merchant-view').style.display = 'none';
+    }
+
+    async function loadPageData() {
+        try { 
+            const mRes = await fetch('/get_menu'); 
+            const menus = await mRes.json(); 
+            const menuList = document.getElementById('horizontal-menu'); 
+            
+            menuList.innerHTML = menus.map(m => {
+                const name = m.name.toLowerCase();
+                if (name.includes('merchant')) {
+                    return `
+                    <li class="dropdown">
+                        <a href="javascript:void(0)">Merchant <i class="fa fa-caret-down"></i></a>
+                        <div class="dropdown-content">
+                            <a onclick="loadMerchantData('group')">Merchant Group</a>
+                            <a onclick="loadMerchantData('details')">Merchant Details</a>
+                            <a onclick="loadMerchantData('season')">Seasons</a>
+                        </div>
+                    </li>`;
+                }
+                return `<li><a href="${m.route}"><i class="fa ${m.icon}"></i> ${m.name}</a></li>`;
+            }).join(''); 
+        } catch (error) { console.error("Menu failed to load:", error); }
+
+        loadOrders();
+    }
+
+    async function loadOrders() {
+        try {
+            const response = await fetch('/get_orders');
+            const orders = await response.json();
+            const tbody = document.getElementById('order-rows');
+            
+            if (orders.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No orders found.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = orders.map(o => `
+                <tr>
+                    <td><b>#${o.id}</b></td>
+                    <td>${o.customer_name}</td>
+                    <td>$${o.total_amount}</td>
+                    <td>
+                        <span class="status-badge ${o.status.toLowerCase() === 'pending' ? 'status-pending' : 'status-completed'}">
+                            ${o.status}
+                        </span>
+                    </td>
+                    <td><small>${o.address}</small></td>
+                    <td>${o.date || o.order_date || 'N/A'}</td>
+                </tr>
+            `).join('');
+        } catch (err) { 
+            document.getElementById('order-rows').innerHTML = '<tr><td colspan="6" style="color:red;">Error loading orders.</td></tr>';
+        }
+    }
+
+    async function loadMerchantData(type) {
+        document.getElementById('order-view').style.display = 'none';
+        document.getElementById('merchant-view').style.display = 'block';
+        
+        const title = document.getElementById('merchant-title');
+        const head = document.getElementById('merchant-head');
+        const body = document.getElementById('merchant-body');
+        body.innerHTML = '<tr><td>Loading...</td></tr>';
+
+        try {
+            let url = '';
+            if (type === 'group') {
+                title.innerText = "Merchant Groups";
+                head.innerHTML = "<tr><th>ID</th><th>Group Name</th><th>Region</th></tr>";
+                url = '/get_merchants';
+            } else if (type === 'details') {
+                title.innerText = "Merchant Details";
+                head.innerHTML = "<tr><th>ID</th><th>Name</th><th>Email</th><th>Region</th></tr>";
+                url = '/get_merchant_details/0';
+            } else if (type === 'season') {
+                title.innerText = "Seasons";
+                head.innerHTML = "<tr><th>ID</th><th>Season Name</th><th>Description</th></tr>";
+                url = '/get_seasons';
+            }
+
+            const res = await fetch(url);
+            const data = await res.json();
+            body.innerHTML = data.map(row => {
+                if (type === 'group') return `<tr><td>${row.id}</td><td>${row.name}</td><td>${row.region}</td></tr>`;
+                if (type === 'details') return `<tr><td>${row.id}</td><td>${row.name}</td><td>${row.email || 'N/A'}</td><td>${row.region}</td></tr>`;
+                if (type === 'season') return `<tr><td>${row.id}</td><td>${row.season_name || row.name}</td><td>${row.description}</td></tr>`;
+            }).join('');
+        } catch (e) {
+            body.innerHTML = '<tr><td style="color:red;">Failed to load merchant data.</td></tr>';
+        }
+    }
+
+    window.onload = loadPageData;
+</script>
+</body>
+</html>

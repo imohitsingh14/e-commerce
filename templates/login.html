@@ -1,0 +1,99 @@
+<!DOCTYPE html> 
+<html> 
+<head> 
+    <title>R.Global Auth</title> 
+    <style> 
+        body { 
+            margin: 0; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            background-image: url('../static/photo.jpg'); 
+            background-size: cover; 
+            background-position: center; 
+            font-family: 'Segoe UI', sans-serif; 
+        } 
+        .auth-box { background: rgba(255, 255, 255, 0.95); padding: 40px; width: 350px; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); text-align: center; } 
+        .auth-box h2 { color: #333; margin-bottom: 30px; border-bottom: 2px solid #fc8213; display: inline-block; } 
+        .auth-box input { width: 100%; padding: 12px; margin: 10px 0; box-sizing: border-box; border: 1px solid #ddd; border-radius: 4px; } 
+        .auth-box button { width: 100%; background-color: #fc8213; color: white; padding: 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 10px; } 
+        .auth-box button:hover { background-color: #e57200; } 
+        .toggle-link { margin-top: 15px; font-size: 14px; color: #666; cursor: pointer; display: block; } 
+        .hidden { display: none; } 
+    </style> 
+</head> 
+<body> 
+ 
+    <div class="auth-box"> 
+        <div id="login-form"> 
+            <h2>R.Global Login</h2> 
+            <input type="text" id="login-user" placeholder="Username"> 
+            <input type="password" id="login-pass" placeholder="Password"> 
+            <button onclick="handleLogin()">Sign In</button> 
+            <span class="toggle-link" onclick="toggleAuth()">Need an account? Register here</span> 
+        </div> 
+ 
+      <div id="register-form" class="hidden"> 
+     <h2>R.Global Register</h2> 
+     <input type="text" id="reg-user" placeholder="Username" required> 
+     <input type="email" id="reg-email" placeholder="Email Address" required> 
+     <input type="text" id="reg-dept" placeholder="Department" required> 
+     <input type="password" id="reg-pass" placeholder="Password" required> 
+     <button onclick="handleRegister()">Create Account</button> 
+     <span class="toggle-link" onclick="toggleAuth()">Already have an account? Login here</span> 
+ </div> 
+     </div> 
+ 
+    <script> 
+        function toggleAuth() { 
+            document.getElementById('login-form').classList.toggle('hidden'); 
+            document.getElementById('register-form').classList.toggle('hidden'); 
+        } 
+ 
+        async function handleLogin() { 
+            const user = document.getElementById('login-user').value; 
+            const pass = document.getElementById('login-pass').value; 
+            const response = await fetch('/login', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ username: user, password: pass }) 
+            }); 
+            const result = await response.json(); 
+            if (result.status === "success") window.location.href = result.redirect; 
+            else alert(result.message); 
+        } 
+ 
+async function handleRegister() { 
+    const user = document.getElementById('reg-user').value; 
+    const email = document.getElementById('reg-email').value; 
+    const dept = document.getElementById('reg-dept').value; 
+    const pass = document.getElementById('reg-pass').value; 
+ 
+    if (!user || !pass || !email || !dept) { 
+        alert("Please fill in all fields."); 
+        return; 
+    } 
+ 
+    const response = await fetch('/register', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ 
+            username: user, 
+            email: email, 
+            department: dept, 
+            password: pass 
+        }) 
+    }); 
+     
+    const result = await response.json(); 
+    if (result.status === "success") { 
+        alert("Registration successful! You can now login."); 
+        toggleAuth(); 
+    } else { 
+        alert(result.message); 
+    } 
+} 
+    </script> 
+</body> 
+</html> 

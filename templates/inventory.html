@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>R.GLOBAL - INVENTORY</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root { --aiims-blue: #000080; --aiims-purple: #8e44ad; --low-stock: #e74c3c; --in-stock: #27ae60; }
+        body { 
+            margin: 0; 
+            font-family: 'Segoe UI', sans-serif;
+            background-image: url('/static/bg.jpg'); 
+            background-size: cover;
+            background-attachment: fixed;
+        }
+
+        .top-nav { 
+            background: white; 
+            padding: 10px 40px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .main-menu { 
+            background-color: var(--aiims-blue); 
+            display: flex; 
+            padding: 0 40px; 
+            list-style: none; 
+            margin: 0; 
+            min-height: 50px; 
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        .main-menu li { position: relative; }
+        .main-menu li a { 
+            color: white; 
+            text-decoration: none; 
+            padding: 15px 25px; 
+            display: block; 
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .main-menu li a:hover { background: rgba(255,255,255,0.1); }
+
+        .dropdown-content { 
+            display: none; 
+            position: absolute; 
+            background: white; 
+            min-width: 200px; 
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2); 
+            z-index: 1001; 
+            top: 100%; 
+            border-radius: 0 0 5px 5px; 
+        }
+        .dropdown:hover .dropdown-content { display: block; }
+        .dropdown-content a { 
+            color: var(--aiims-blue) !important; 
+            padding: 12px 20px !important; 
+            border-bottom: 1px solid #eee; 
+            text-decoration: none; 
+            display: block; 
+            font-weight: 500; 
+            cursor: pointer;
+        }
+        .dropdown-content a:hover { background: #f1f1f1; }
+        
+        .container { padding: 30px 40px; }
+        .content-card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        table { width: 100%; border-collapse: collapse; border-radius: 10px; overflow: hidden; margin-top: 20px; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background-color: #f8f9fa; color: var(--aiims-blue); text-transform: uppercase; font-size: 13px; letter-spacing: 0.5px; }
+        
+        .badge { padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; color: white; display: inline-block; text-transform: uppercase; }
+        .bg-low { background-color: var(--low-stock); }
+        .bg-ok { background-color: var(--in-stock); }
+
+        #merchant-view { display: none; }
+    </style>
+</head>
+<body>
+
+    <header class="top-nav">
+        <h2 style="margin:0; color:var(--aiims-blue);">R.GLOBAL <span style="color:var(--aiims-purple)">INVENTORY</span></h2>
+        <button onclick="window.location.href='/logout'" style="background: #eee; border:none; padding:8px 15px; border-radius:5px; cursor:pointer; font-weight:bold;">Logout</button>
+    </header>
+
+    <nav>
+        <ul class="main-menu" id="horizontal-menu"></ul> 
+    </nav>
+
+    <div class="container">
+        <div id="inventory-view" class="content-card">
+            <h3 style="margin-top:0; color:var(--aiims-blue);"> Overview</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Product Name</th>
+                        <th>Category</th>
+                        <th>Price</th>
+                        <th>Current Stock</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="inventory-table">
+                    <tr><td colspan="5">Fetching inventory data...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="merchant-view" class="content-card">
+            <button onclick="showInventory()" style="padding: 8px 15px; border:none; cursor:pointer; background:#eee; border-radius:5px;"><i class="fa fa-arrow-left"></i> Back to Inventory</button>
+            <h2 id="merchant-title" style="color:var(--aiims-blue); margin-top:20px;">Merchant Data</h2>
+            <table>
+                <thead id="merchant-head"></thead>
+                <tbody id="merchant-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        function showInventory() {
+            document.getElementById('inventory-view').style.display = 'block';
+            document.getElementById('merchant-view').style.display = 'none';
+        }
+
+        async function initPage() {
+            await loadMenu();
+            await loadInventoryData();
+        }
+
+        async function loadMenu() {
+            try {
+                const mRes = await fetch('/get_menu');
+                const menus = await mRes.json();
+                const menuUl = document.getElementById('horizontal-menu');
+                
+                menuUl.innerHTML = menus.map(m => {
+                    const name = m.name.toLowerCase();
+                    if (name.includes('merchant')) {
+                        return `
+                        <li class="dropdown">
+                            <a href="javascript:void(0)">Merchant <i class="fa fa-caret-down"></i></a>
+                            <div class="dropdown-content">
+                                <a onclick="loadMerchantData('group')">Merchant Group</a>
+                                <a onclick="loadMerchantData('details')">Merchant Details</a>
+                                <a onclick="loadMerchantData('season')">Seasons</a>
+                            </div>
+                        </li>`;
+                    }
+                    return `<li><a href="${m.route}"><i class="fa ${m.icon}"></i> ${m.name}</a></li>`;
+                }).join('');
+            } catch (e) { console.error("Menu error:", e); }
+        }
+
+        async function loadInventoryData() {
+            try {
+                const res = await fetch('/get_products'); 
+                const data = await res.json();
+                const table = document.getElementById('inventory-table');
+
+                if (data.length === 0) {
+                    table.innerHTML = '<tr><td colspan="5" style="text-align:center;">No products found.</td></tr>';
+                    return;
+                }
+
+                table.innerHTML = data.map(item => {
+                    const isLow = (item.stock || 0) < 10;
+                    const statusClass = isLow ? 'bg-low' : 'bg-ok';
+                    const statusText = isLow ? 'Low Stock' : 'In Stock';
+
+                    return `
+                        <tr>
+                            <td><strong>${item.name}</strong></td>
+                            <td>${item.category || 'General'}</td>
+                            <td>$${item.price}</td>
+                            <td>${item.stock}</td>
+                            <td><span class="badge ${statusClass}">${statusText}</span></td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (error) {
+                document.getElementById('inventory-table').innerHTML = '<tr><td colspan="5" style="color:red;">Error loading data.</td></tr>';
+            }
+        }
+
+        async function loadMerchantData(type) {
+            document.getElementById('inventory-view').style.display = 'none';
+            document.getElementById('merchant-view').style.display = 'block';
+            
+            const title = document.getElementById('merchant-title');
+            const head = document.getElementById('merchant-head');
+            const body = document.getElementById('merchant-body');
+            body.innerHTML = '<tr><td>Loading data...</td></tr>';
+
+            try {
+                let url = '';
+                if (type === 'group') {
+                    title.innerText = "Merchant Groups";
+                    head.innerHTML = "<tr><th>ID</th><th>Group Name</th><th>Region</th></tr>";
+                    url = '/get_merchants';
+                } else if (type === 'details') {
+                    title.innerText = "Merchant Details";
+                    head.innerHTML = "<tr><th>ID</th><th>Name</th><th>Email</th><th>Region</th></tr>";
+                    url = '/get_merchant_details/0';
+                } else if (type === 'season') {
+                    title.innerText = "Season Management";
+                    head.innerHTML = "<tr><th>ID</th><th>Season Name</th><th>Description</th></tr>";
+                    url = '/get_seasons';
+                }
+
+                const res = await fetch(url);
+                const data = await res.json();
+                body.innerHTML = data.map(row => {
+                    if (type === 'group') return `<tr><td>${row.id}</td><td>${row.name}</td><td>${row.region}</td></tr>`;
+                    if (type === 'details') return `<tr><td>${row.id}</td><td>${row.name}</td><td>${row.email || 'N/A'}</td><td>${row.region}</td></tr>`;
+                    if (type === 'season') return `<tr><td>${row.id}</td><td>${row.season_name || row.name}</td><td>${row.description}</td></tr>`;
+                }).join('');
+            } catch (e) {
+                body.innerHTML = '<tr><td style="color:red;">Error fetching data.</td></tr>';
+            }
+        }
+
+        window.onload = initPage;
+    </script>
+</body>
+</html>

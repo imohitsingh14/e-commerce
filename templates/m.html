@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>R.GLOBAL DASHBOARD</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root { --aiims-blue: #000080; --aiims-purple: #8e44ad; }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #f4f7f6; background-image: url('/static/bg.jpg'); background-size: cover; background-attachment: fixed; }
+        
+        /* Top Navigation */
+        .top-nav { background: white; padding: 10px 40px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        
+        /* Main Blue Menu Bar */
+        .main-menu { background: var(--aiims-blue); display: flex; padding: 0 40px; list-style: none; margin: 0; min-height: 50px; align-items: center; position: sticky; top: 0; z-index: 1000; }
+        .main-menu li { position: relative; }
+        .main-menu li a { color: white; text-decoration: none; padding: 15px 25px; display: block; font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.3s; }
+        .main-menu li a:hover { background: rgba(255,255,255,0.1); }
+        
+        /* Dropdown Styling */
+        .dropdown-content { display: none; position: absolute; background: white; min-width: 200px; box-shadow: 0 8px 16px rgba(0,0,0,0.2); z-index: 1001; top: 100%; border-radius: 0 0 5px 5px; }
+        .dropdown:hover .dropdown-content { display: block; }
+        .dropdown-content a { color: var(--aiims-blue) !important; padding: 12px 20px !important; border-bottom: 1px solid #eee; text-decoration: none; display: block; font-weight: 500; cursor: pointer; }
+        .dropdown-content a:hover { background: #f1f1f1; }
+        
+        /* Content Area */
+        .container { padding: 30px 40px; }
+        .hero-banner { background-image: url('/static/photo.jpg'); background-size: cover; background-position: center; padding: 80px 40px; border-radius: 12px; margin-bottom: 25px; color: #4e4f4f; box-shadow: 0 10px 30px rgba(0,0,0,0.2); display: flex; flex-direction: column; justify-content: center; min-height: 250px; }
+        
+        /* Merchant/Data Section */
+        #data-section { display: none; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .user-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .user-table th, .user-table td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        .user-table th { background: #f8f9fa; color: var(--aiims-blue); }
+        .btn-back { margin-bottom: 20px; padding: 8px 15px; cursor: pointer; background: #eee; border: none; border-radius: 5px; font-weight: bold; }
+        .btn-add { float: right; padding: 10px 20px; background: var(--aiims-blue); color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+
+        /* Simple Modal */
+        .modal { display:none; position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); backdrop-filter: blur(2px); }
+        .modal-content { background:white; margin:10% auto; padding:30px; width:400px; border-radius:12px; position: relative; }
+        .modal-content input { width: 94%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+<header class="top-nav">
+    <h2 style="color:var(--aiims-blue); margin:0;">R.GLOBAL <span style="color:var(--aiims-purple)">DASHBOARD</span></h2>
+    <div style="display: flex; align-items: center; gap: 20px;">
+        <div style="font-weight:bold; color:var(--aiims-blue);"><i class="fa fa-user-circle"></i> {{ user }}</div>
+        <!-- Fixed Logout: Uses simple route redirection -->
+        <a href="/logout" style="background: #e74c3c; color: white; text-decoration: none; padding: 8px 18px; border-radius: 5px; font-weight: bold; font-size: 13px;">Logout</a>
+    </div>
+</header>
+
+<nav>
+    <ul class="main-menu" id="horizontal-menu"></ul>
+</nav>
+
+<div class="container">
+    <div id="default-view" class="hero-banner">
+        <h1 style="font-size: 3.5rem; color:var(--aiims-blue); margin:0;">R.GLOBAL</h1>
+        <p style="font-weight: bold; letter-spacing: 1px; color: #333;">DEALS WITH EXPORT AND BUYER</p>
+    </div>
+
+    <div id="data-section">
+        <button class="btn-back" onclick="goHome()"><i class="fa fa-arrow-left"></i> Back to Dashboard</button>
+        <button class="btn-add" onclick="openModal()"><i class="fa fa-plus"></i> Add New</button>
+        <h2 id="section-title" style="color: var(--aiims-blue);">Section Name</h2>
+        <table class="user-table">
+            <thead id="table-head"></thead>
+            <tbody id="table-body"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal -->
+<div id="dataModal" class="modal">
+    <div class="modal-content">
+        <h3 id="modal-title" style="color: var(--aiims-blue); margin-top: 0;">Add New Entry</h3>
+        <div id="modal-fields"></div>
+        <button class="btn-add" style="float:none; width:100%; margin-top: 15px;" onclick="submitData()">Save Record</button>
+        <button onclick="closeModal()" style="width:100%; margin-top:10px; border:none; background:none; cursor:pointer; color: #666;">Cancel</button>
+    </div>
+</div>
+
+<script>
+    let currentView = '';
+
+    function hideAll() {
+        document.getElementById('default-view').style.display = 'none';
+        document.getElementById('data-section').style.display = 'none';
+    }
+
+    function goHome() {
+        hideAll();
+        document.getElementById('default-view').style.display = 'flex';
+        // Clean URL after going back
+        window.history.pushState({}, '', '/');
+    }
+
+    async function loadMenu() {
+        const res = await fetch('/get_menu');
+        const data = await res.json();
+        const menuUl = document.getElementById('horizontal-menu');
+        
+        menuUl.innerHTML = data.map(item => {
+            const name = item.name.toLowerCase();
+            if (name.includes('merchant')) {
+                return `
+                <li class="dropdown">
+                    <a href="javascript:void(0)">Merchant <i class="fa fa-caret-down"></i></a>
+                    <div class="dropdown-content">
+                        <a onclick="loadData('group')">Merchant Group</a>
+                        <a onclick="loadData('details')">Merchant Details</a>
+                        <a onclick="loadData('season')">Seasons</a>
+                    </div>
+                </li>`;
+            }
+            return `<li><a href="${item.route}">${item.name}</a></li>`;
+        }).join('');
+    }
+
+    async function loadData(type) {
+        currentView = type;
+        hideAll();
+        
+        const section = document.getElementById('data-section');
+        const title = document.getElementById('section-title');
+        const head = document.getElementById('table-head');
+        const body = document.getElementById('table-body');
+        
+        section.style.display = 'block';
+        body.innerHTML = '<tr><td colspan="4">Loading...</td></tr>';
+
+        try {
+            let url = '';
+            if (type === 'group') {
+                title.innerText = "Merchant Groups";
+                head.innerHTML = "<tr><th>ID</th><th>Group Name</th><th>Region</th></tr>";
+                url = '/get_merchants';
+            } else if (type === 'details') {
+                title.innerText = "Merchant Details";
+                head.innerHTML = "<tr><th>ID</th><th>Name</th><th>Region</th><th>Email</th></tr>";
+                url = '/get_merchant_details/0';
+            } else if (type === 'season') {
+                title.innerText = "Seasons";
+                head.innerHTML = "<tr><th>ID</th><th>Season Name</th><th>Description</th></tr>";
+                url = '/get_seasons';
+            }
+
+            const res = await fetch(url);
+            const data = await res.json();
+            body.innerHTML = data.map(m => {
+                if(type === 'group') return `<tr><td>${m.id}</td><td>${m.name || m.group_name}</td><td>${m.region}</td></tr>`;
+                if(type === 'details') return `<tr><td>${m.id}</td><td>${m.name}</td><td>${m.region}</td><td>${m.email || 'N/A'}</td></tr>`;
+                if(type === 'season') return `<tr><td>${m.id}</td><td>${m.season_name || m.name}</td><td>${m.description}</td></tr>`;
+            }).join('');
+        } catch (error) {
+            body.innerHTML = `<tr><td colspan="4" style="color:red">Failed to load data.</td></tr>`;
+        }
+    }
+
+    function openModal() {
+        const fields = document.getElementById('modal-fields');
+        fields.innerHTML = '';
+        if (currentView === 'group') {
+            fields.innerHTML = `<input id="f1" placeholder="Group Name"><input id="f2" placeholder="Region">`;
+        } else if (currentView === 'details') {
+            fields.innerHTML = `<input id="f1" placeholder="Name"><input id="f2" placeholder="Region"><input id="f3" placeholder="Email"><input id="f4" type="number" placeholder="Group ID">`;
+        } else if (currentView === 'season') {
+            fields.innerHTML = `<input id="f1" placeholder="Season Name"><input id="f2" placeholder="Description">`;
+        }
+        document.getElementById('dataModal').style.display = 'block';
+    }
+
+    function closeModal() { document.getElementById('dataModal').style.display = 'none'; }
+
+    async function submitData() {
+        let url = '', payload = {};
+        const f1 = document.getElementById('f1')?.value;
+        const f2 = document.getElementById('f2')?.value;
+
+        if (currentView === 'group') {
+            url = '/add_merchant';
+            payload = { name: f1, region: f2 };
+        } else if (currentView === 'details') {
+            url = '/add_merchant_detail';
+            payload = { name: f1, region: f2, email: document.getElementById('f3').value, group_id: document.getElementById('f4').value };
+        } else if (currentView === 'season') {
+            url = '/add_season';
+            payload = { name: f1, description: f2 };
+        }
+
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (res.ok) { closeModal(); loadData(currentView); }
+    }
+
+    // This handles redirection logic from other pages
+    window.onload = async function() {
+        await loadMenu();
+        const urlParams = new URLSearchParams(window.location.search);
+        const view = urlParams.get('view');
+        if (view) loadData(view);
+    };
+</script>
+</body>
+</html>
