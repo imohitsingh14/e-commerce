@@ -8,37 +8,36 @@
         :root { --aiims-blue: #000080; --aiims-purple: #8e44ad; }
         body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #f4f7f6; background-image: url('/static/bg.jpg'); background-size: cover; background-attachment: fixed; }
         
-        /* Top Navigation */
         .top-nav { background: white; padding: 10px 40px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         
-        /* Main Blue Menu Bar */
         .main-menu { background: var(--aiims-blue); display: flex; padding: 0 40px; list-style: none; margin: 0; min-height: 50px; align-items: center; position: sticky; top: 0; z-index: 1000; }
         .main-menu li { position: relative; }
         .main-menu li a { color: white; text-decoration: none; padding: 15px 25px; display: block; font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.3s; }
         .main-menu li a:hover { background: rgba(255,255,255,0.1); }
         
-        /* Dropdown Styling */
         .dropdown-content { display: none; position: absolute; background: white; min-width: 200px; box-shadow: 0 8px 16px rgba(0,0,0,0.2); z-index: 1001; top: 100%; border-radius: 0 0 5px 5px; }
         .dropdown:hover .dropdown-content { display: block; }
         .dropdown-content a { color: var(--aiims-blue) !important; padding: 12px 20px !important; border-bottom: 1px solid #eee; text-decoration: none; display: block; font-weight: 500; cursor: pointer; }
         .dropdown-content a:hover { background: #f1f1f1; }
         
-        /* Content Area */
         .container { padding: 30px 40px; }
         .hero-banner { background-image: url('/static/photo.jpg'); background-size: cover; background-position: center; padding: 80px 40px; border-radius: 12px; margin-bottom: 25px; color: #4e4f4f; box-shadow: 0 10px 30px rgba(0,0,0,0.2); display: flex; flex-direction: column; justify-content: center; min-height: 250px; }
         
-        /* Merchant/Data Section */
         #data-section { display: none; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
         .user-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         .user-table th, .user-table td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
         .user-table th { background: #f8f9fa; color: var(--aiims-blue); }
+        
         .btn-back { margin-bottom: 20px; padding: 8px 15px; cursor: pointer; background: #eee; border: none; border-radius: 5px; font-weight: bold; }
         .btn-add { float: right; padding: 10px 20px; background: var(--aiims-blue); color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
 
-        /* Simple Modal */
         .modal { display:none; position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); backdrop-filter: blur(2px); }
-        .modal-content { background:white; margin:10% auto; padding:30px; width:400px; border-radius:12px; position: relative; }
-        .modal-content input { width: 94%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; }
+        .modal-content { background:white; margin:5% auto; padding:30px; width:400px; border-radius:12px; position: relative; }
+        .modal-content input, .modal-content select { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        
+        .action-btns { display: flex; gap: 15px; }
+        .btn-edit { color: var(--aiims-purple); cursor: pointer; border: none; background: none; font-size: 1.1rem; }
+        .btn-delete { color: #e74c3c; cursor: pointer; border: none; background: none; font-size: 1.1rem; }
     </style>
 </head>
 <body>
@@ -46,8 +45,7 @@
 <header class="top-nav">
     <h2 style="color:var(--aiims-blue); margin:0;">R.GLOBAL <span style="color:var(--aiims-purple)">DASHBOARD</span></h2>
     <div style="display: flex; align-items: center; gap: 20px;">
-        <div style="font-weight:bold; color:var(--aiims-blue);"><i class="fa fa-user-circle"></i> {{ user }}</div>
-        <!-- Fixed Logout: Uses simple route redirection -->
+        <div style="font-weight:bold; color:var(--aiims-blue);"> {{ user }}</div>
         <a href="/logout" style="background: #e74c3c; color: white; text-decoration: none; padding: 8px 18px; border-radius: 5px; font-weight: bold; font-size: 13px;">Logout</a>
     </div>
 </header>
@@ -73,10 +71,10 @@
     </div>
 </div>
 
-<!-- Modal -->
 <div id="dataModal" class="modal">
     <div class="modal-content">
         <h3 id="modal-title" style="color: var(--aiims-blue); margin-top: 0;">Add New Entry</h3>
+        <input type="hidden" id="edit-id"> <!-- Hidden field to store ID for editing -->
         <div id="modal-fields"></div>
         <button class="btn-add" style="float:none; width:100%; margin-top: 15px;" onclick="submitData()">Save Record</button>
         <button onclick="closeModal()" style="width:100%; margin-top:10px; border:none; background:none; cursor:pointer; color: #666;">Cancel</button>
@@ -85,6 +83,8 @@
 
 <script>
     let currentView = '';
+    let merchantGroups = []; 
+    let tableData = []; // To store the current visible data for editing
 
     function hideAll() {
         document.getElementById('default-view').style.display = 'none';
@@ -94,7 +94,6 @@
     function goHome() {
         hideAll();
         document.getElementById('default-view').style.display = 'flex';
-        // Clean URL after going back
         window.history.pushState({}, '', '/');
     }
 
@@ -102,19 +101,15 @@
         const res = await fetch('/get_menu');
         const data = await res.json();
         const menuUl = document.getElementById('horizontal-menu');
-        
         menuUl.innerHTML = data.map(item => {
             const name = item.name.toLowerCase();
             if (name.includes('merchant')) {
-                return `
-                <li class="dropdown">
-                    <a href="javascript:void(0)">Merchant <i class="fa fa-caret-down"></i></a>
+                return `<li class="dropdown"><a href="javascript:void(0)">Merchant <i class="fa fa-caret-down"></i></a>
                     <div class="dropdown-content">
-                        <a onclick="loadData('group')">Merchant Group</a>
-                        <a onclick="loadData('details')">Merchant Details</a>
+                        <a onclick="loadData('group')">Buyers Group</a>
+                        <a onclick="loadData('details')">Buyer Details</a>
                         <a onclick="loadData('season')">Seasons</a>
-                    </div>
-                </li>`;
+                    </div></li>`;
             }
             return `<li><a href="${item.route}">${item.name}</a></li>`;
         }).join('');
@@ -123,90 +118,96 @@
     async function loadData(type) {
         currentView = type;
         hideAll();
-        
         const section = document.getElementById('data-section');
-        const title = document.getElementById('section-title');
-        const head = document.getElementById('table-head');
         const body = document.getElementById('table-body');
-        
         section.style.display = 'block';
-        body.innerHTML = '<tr><td colspan="4">Loading...</td></tr>';
+        body.innerHTML = '<tr><td colspan="5">Loading...</td></tr>';
 
         try {
-            let url = '';
-            if (type === 'group') {
-                title.innerText = "Merchant Groups";
-                head.innerHTML = "<tr><th>ID</th><th>Group Name</th><th>Region</th></tr>";
-                url = '/get_merchants';
-            } else if (type === 'details') {
-                title.innerText = "Merchant Details";
-                head.innerHTML = "<tr><th>ID</th><th>Name</th><th>Region</th><th>Email</th></tr>";
-                url = '/get_merchant_details/0';
-            } else if (type === 'season') {
-                title.innerText = "Seasons";
-                head.innerHTML = "<tr><th>ID</th><th>Season Name</th><th>Description</th></tr>";
-                url = '/get_seasons';
-            }
+            const gRes = await fetch('/get_merchants');
+            merchantGroups = await gRes.json();
 
+            let url = (type === 'group') ? '/get_merchants' : (type === 'details') ? '/get_merchant_details/0' : '/get_seasons';
             const res = await fetch(url);
-            const data = await res.json();
-            body.innerHTML = data.map(m => {
-                if(type === 'group') return `<tr><td>${m.id}</td><td>${m.name || m.group_name}</td><td>${m.region}</td></tr>`;
-                if(type === 'details') return `<tr><td>${m.id}</td><td>${m.name}</td><td>${m.region}</td><td>${m.email || 'N/A'}</td></tr>`;
-                if(type === 'season') return `<tr><td>${m.id}</td><td>${m.season_name || m.name}</td><td>${m.description}</td></tr>`;
+            tableData = await res.json();
+            
+            document.getElementById('section-title').innerText = type.charAt(0).toUpperCase() + type.slice(1);
+            document.getElementById('table-head').innerHTML = `<tr><th>ID</th><th>Name</th><th>${type==='details'?'Merchant Group':'Info'}</th><th>Region/Desc</th><th>Actions</th></tr>`;
+
+            body.innerHTML = tableData.map(m => {
+                const groupName = type === 'details' ? (merchantGroups.find(g => g.id == m.group_id)?.name || 'N/A') : '-';
+                return `<tr>
+                    <td><b>#${m.id}</b></td>
+                    <td>${m.name || m.season_name || m.group_name}</td>
+                    <td>${type === 'details' ? `<b>${groupName}</b>` : (m.email || m.description || '-')}</td>
+                    <td>${m.region || m.description || '-'}</td>
+                    <td class="action-btns">
+                        <button class="btn-edit" onclick="openModal(${m.id})"><i class="fa fa-edit"></i></button>
+                        <button class="btn-delete" onclick="deleteData(${m.id})"><i class="fa fa-trash-alt"></i></button>
+                    </td>
+                </tr>`;
             }).join('');
-        } catch (error) {
-            body.innerHTML = `<tr><td colspan="4" style="color:red">Failed to load data.</td></tr>`;
-        }
+        } catch (e) { body.innerHTML = '<tr><td colspan="5" style="color:red">Error loading data.</td></tr>'; }
     }
 
-    function openModal() {
+    function openModal(id = null) {
         const fields = document.getElementById('modal-fields');
+        const title = document.getElementById('modal-title');
+        const editId = document.getElementById('edit-id');
         fields.innerHTML = '';
+        editId.value = id || '';
+        title.innerText = id ? "Edit Record" : "Add New Entry";
+
+        const data = id ? tableData.find(x => x.id == id) : null;
+
         if (currentView === 'group') {
-            fields.innerHTML = `<input id="f1" placeholder="Group Name"><input id="f2" placeholder="Region">`;
+            fields.innerHTML = `<input id="f1" placeholder="Group Name" value="${data ? (data.name || data.group_name) : ''}">
+                                <input id="f2" placeholder="Region" value="${data ? data.region : ''}">`;
         } else if (currentView === 'details') {
-            fields.innerHTML = `<input id="f1" placeholder="Name"><input id="f2" placeholder="Region"><input id="f3" placeholder="Email"><input id="f4" type="number" placeholder="Group ID">`;
+            let options = merchantGroups.map(g => `<option value="${g.id}" ${data && data.group_id == g.id ? 'selected':''}>${g.name}</option>`).join('');
+            fields.innerHTML = `
+                <input id="f1" placeholder="Buyer Name" value="${data ? data.name : ''}">
+                <input id="f2" placeholder="Region" value="${data ? data.region : ''}">
+                <input id="f3" placeholder="Email" value="${data ? (data.email || '') : ''}">
+                <select id="f4">${options}</select>`;
         } else if (currentView === 'season') {
-            fields.innerHTML = `<input id="f1" placeholder="Season Name"><input id="f2" placeholder="Description">`;
+            fields.innerHTML = `<input id="f1" placeholder="Season Name" value="${data ? (data.season_name || data.name) : ''}">
+                                <input id="f2" placeholder="Description" value="${data ? data.description : ''}">`;
         }
         document.getElementById('dataModal').style.display = 'block';
     }
 
-    function closeModal() { document.getElementById('dataModal').style.display = 'none'; }
-
     async function submitData() {
-        let url = '', payload = {};
-        const f1 = document.getElementById('f1')?.value;
-        const f2 = document.getElementById('f2')?.value;
+        const id = document.getElementById('edit-id').value;
+        let url = id ? `/edit_${currentView}/${id}` : (currentView === 'group' ? '/add_merchant' : currentView === 'details' ? '/add_merchant_detail' : '/add_season');
+        
+        let payload = {
+            name: document.getElementById('f1').value,
+            region: document.getElementById('f2').value
+        };
 
-        if (currentView === 'group') {
-            url = '/add_merchant';
-            payload = { name: f1, region: f2 };
-        } else if (currentView === 'details') {
-            url = '/add_merchant_detail';
-            payload = { name: f1, region: f2, email: document.getElementById('f3').value, group_id: document.getElementById('f4').value };
-        } else if (currentView === 'season') {
-            url = '/add_season';
-            payload = { name: f1, description: f2 };
+        if(currentView === 'details') {
+            payload.email = document.getElementById('f3').value;
+            payload.group_id = document.getElementById('f4').value;
         }
 
         const res = await fetch(url, {
-            method: 'POST',
+            method: id ? 'PUT' : 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
 
-        if (res.ok) { closeModal(); loadData(currentView); }
+        if (res.ok) { closeModal(); loadData(currentView); } else { alert("Failed to save."); }
     }
 
-    // This handles redirection logic from other pages
-    window.onload = async function() {
-        await loadMenu();
-        const urlParams = new URLSearchParams(window.location.search);
-        const view = urlParams.get('view');
-        if (view) loadData(view);
-    };
+    async function deleteData(id) {
+        if(!confirm("Delete record?")) return;
+        let url = (currentView==='group') ? `/delete_merchant/${id}` : (currentView==='details') ? `/delete_merchant_detail/${id}` : `/delete_season/${id}`;
+        if ((await fetch(url, { method: 'DELETE' })).ok) loadData(currentView);
+    }
+
+    function closeModal() { document.getElementById('dataModal').style.display = 'none'; }
+    window.onload = loadMenu;
 </script>
 </body>
 </html>

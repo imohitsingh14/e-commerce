@@ -116,22 +116,49 @@
     }
 
     async function loadTable() {
-        const res = await fetch('/get_merchants');
-        const data = await res.json();
-        document.getElementById('merchant-rows').innerHTML = data.map(m => `
-            <tr>
-                <td>#${m.id}</td>
-                <td><b>${m.name}</b></td>
-                <td>${m.level_type || 'null'}</td>
-                <td>${m.region || 'null'}</td>
-                <td>${m.country || 'null'}</td>
-                <td style="text-align:center;">
-                    <button onclick='openEdit(${JSON.stringify(m)})' style="color:var(--navy); border:none; background:none; cursor:pointer; margin-right:15px;"><i class="fa fa-edit"></i></button>
-                    <button onclick="deleteMerchant(${m.id})" style="color:red; border:none; background:none; cursor:pointer;"><i class="fa fa-trash"></i></button>
+    const res = await fetch('/get_merchants');
+    const data = await res.json();
+    
+    const rows = data.map(m => `
+        <tr>
+            <td>#${m.id}</td>
+            <td><b>${m.name}</b></td>
+            <td>${m.level_type || 'Group'}</td>
+            <td>${m.region || 'N/A'}</td>
+            <td>${m.country || 'N/A'}</td>
+            <td style="text-align:center;">
+                <button onclick="deleteMerchant(${m.id})" style="color:red; border:none; background:none; cursor:pointer;">
+                    <i class="fa fa-trash"></i>
                 </td>
             </tr>
-        `).join('');
+    `).join('');
+    
+    document.getElementById('merchant-rows').innerHTML = rows;
+}
+
+async function deleteMerchant(merchantId) {
+    // 1. Confirm with user
+    if (!confirm("Are you sure you want to delete this record?")) return;
+
+    try {
+        // 2. Send DELETE request to the specific ID
+        const response = await fetch(`/delete_merchant/${merchantId}`, {
+            method: 'DELETE'
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            alert("Deleted successfully!");
+            loadTable(); // Refresh the table automatically
+        } else {
+            alert("Error: " + result.message);
+        }
+    } catch (error) {
+        console.error("Delete failed:", error);
+        alert("Could not connect to server.");
     }
+}
 
     window.onload = init;
 </script>
