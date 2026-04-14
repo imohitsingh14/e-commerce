@@ -228,6 +228,7 @@
 
 # if __name__ == '__main__':
 #     app.run(debug=True)
+
 from flask import Flask, render_template, jsonify, request, redirect, url_for, session
 from werkzeug.utils import secure_filename
 from functools import wraps
@@ -490,7 +491,7 @@ def get_design_data(view):
                         TO_CHAR(h.deadline, 'YYYY-MM-DD') as deadline, 
                         h.status, 
                         h.remarks,
-                        i.size, i.quantity, i.color, i.width
+                        i.id as item_id, i.size, i.quantity, i.color, i.width, i.status as item_status
                     FROM design_sampling h
                     LEFT JOIN sampling_items i ON h.id = i.sampling_parent_id
                     ORDER BY h.id DESC
@@ -518,9 +519,9 @@ def add_design_entry():
         # Insert items
         if 'items' in data:
             for item in data['items']:
-                cur.execute("""INSERT INTO sampling_items (sampling_parent_id, color, quantity, size)
-                            VALUES (%s, %s, %s, %s)""",
-                            (parent_id, item['color'], item['quantity'], item['size']))
+                cur.execute("""INSERT INTO sampling_items (sampling_parent_id, color, quantity, size, status)
+                            VALUES (%s, %s, %s, %s, %s)""",
+                            (parent_id, item['color'], item['quantity'], item['size'], data.get('status', 'tracking')))
         
         conn.commit()
         return jsonify({"status": "success", "id": parent_id}), 201
@@ -538,8 +539,11 @@ def update_design_entry(id):
     try:
         # 1. Handle Status Update (The "Move to Cutting" or "Finish" action)
         if 'status' in data and len(data) == 1:
-            # FIX: Changed 'db_id' to 'id' to match the route parameter
+            # Update parent status
             cur.execute("UPDATE design_sampling SET status = %s WHERE id = %s", 
+                        (data.get('status'), id))
+            # Also update all children status for this parent
+            cur.execute("UPDATE sampling_items SET status = %s WHERE sampling_parent_id = %s", 
                         (data.get('status'), id))
         
         # 2. Handle Full Edit (The "Pencil Icon" update)
@@ -554,20 +558,49 @@ def update_design_entry(id):
             cur.execute("DELETE FROM sampling_items WHERE sampling_parent_id = %s", (id,))
             if 'items' in data:
                 for item in data['items']:
-                    cur.execute("""INSERT INTO sampling_items (sampling_parent_id, color, quantity, size)
-                                VALUES (%s, %s, %s, %s)""",
-                                (id, item['color'], item['quantity'], item['size']))
+                    cur.execute("""INSERT INTO sampling_items (sampling_parent_id, color, quantity, size, status)
+                                VALUES (%s, %s, %s, %s, %s)""",
+                                (id, item['color'], item['quantity'], item['size'], data.get('status', 'tracking')))
         
         conn.commit()
         return jsonify({"status": "success"})
     
     except Exception as e:
         conn.rollback()
-        print(f"Database Error: {e}") 
+        print(f"Database Error: {e}") # Log the error to your terminal
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         cur.close()
         conn.close()
+
+@app.route('/update_item_status/<int:id>', methods=['PUT'])
+def update_item_status(id):
+    data = request.json
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("UPDATE sampling_items SET status = %s WHERE id = %s", 
+                    (data.get('status'), id))
+        
+        # Check if all items for the parent are now in the same status or further
+        # If so, update the parent status
+        cur.execute("""
+            UPDATE design_sampling SET status = %s 
+            WHERE id = (SELECT sampling_parent_id FROM sampling_items WHERE id = %s)
+            AND NOT EXISTS (
+                SELECT 1 FROM sampling_items 
+                WHERE sampling_parent_id = (SELECT sampling_parent_id FROM sampling_items WHERE id = %s)
+                AND status != %s
+            )
+        """, (data.get('status'), id, id, data.get('status')))
+
+        conn.commit()
+        return jsonify({"status": "success"})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        cur.close(); conn.close()
     
 @app.route('/move_to_cutting/<int:id>', methods=['POST'])
 @login_required
@@ -760,4 +793,5 @@ if __name__ == '__main__':
     app.run(debug=True)
     
     
+
 
